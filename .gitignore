@@ -31,4 +31,10 @@ dump/
 sim/*.vcd
 sim/transcript
 sim/vsim.wlf
+# Ignore specific files
+APB.cr.mpi
+APB.mpf
+*.txt
+wlftBolBZH
+wlftz22cWWE
 
