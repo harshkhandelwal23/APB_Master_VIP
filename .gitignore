@@ -33,8 +33,9 @@ sim/transcript
 sim/vsim.wlf
 # Ignore specific files
 APB.cr.mpi
+APB.cr.mti
 APB.mpf
 *.txt
 wlftBolBZH
-wlftz22cWWE
+wlftz22cWE
 
