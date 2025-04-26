@@ -1,0 +1,34 @@
+` Ignore simulation files
+*.log
+*.vcd
+*.fsdb
+*.wlf
+*.vvp
+*.out
+
+# Ignore temporary/system files
+*~
+*.swp
+*.bak
+.*.swp
+.*.swo
+
+# Ignore QuestaSim/ModelSim simulation outputs
+transcript
+vsim.wlf
+modelsim.ini
+
+# Ignore directories
+simv*
+csrc/
+simv.daidir/
+DVEfiles/
+
+# Ignore generated folders
+output/
+dump/
+# Ignore simulation outputs in sim/ directory
+sim/*.vcd
+sim/transcript
+sim/vsim.wlf
+
