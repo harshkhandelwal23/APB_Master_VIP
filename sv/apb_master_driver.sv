@@ -3,8 +3,8 @@ import my_pkg::*;
 class driver;
   virtual apb_intf apb_vif;
   mailbox gen2drv;
-      transaction trans;
-typedef enum logic [1:0] {
+  transaction trans;
+  typedef enum logic [1:0] {
     IDLE   = 2'b00,
     SETUP  = 2'b01,
     ACCESS = 2'b10
