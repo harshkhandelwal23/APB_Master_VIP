@@ -66,7 +66,7 @@ class driver;
                           state <= SETUP;//then setup phase
                         end 
                            else
-                             state <= IDLE;//or idle phase
+                             state <= IDLE;//otherwise idle phase
                   end
               endcase
             trans.display("DRIVER");
