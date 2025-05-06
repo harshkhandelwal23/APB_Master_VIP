@@ -33,11 +33,11 @@ class driver;
     task main;
         forever 
           begin
+            gen2drv.get(trans); //get data from mailbox
             @(posedge apb_vif.PCLK) //on the posedge clk
               case (state) // state are IDLE , SETUP, ACCESS
                 IDLE: //first state
                   begin
-                    gen2drv.get(trans); //get data from mailbox
                     `DRIV_IF.PSELx <= 0; //drive psel = 0
                     `DRIV_IF.PENABLE <= 0;//drive penable = 0
                     state <= SETUP; //next state is setup compulsorily
