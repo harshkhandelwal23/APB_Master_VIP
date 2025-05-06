@@ -1,66 +1,75 @@
 import my_pkg::*;
+`define DRIV_IF apb_vif.DRIVER.driver_cb
 class driver;
-  virtual apb_intf vif;
+  virtual apb_intf apb_vif;
   mailbox gen2drv;
-  event drv_ready;
-  
-  // Simplified FSM states
-  typedef enum {IDLE, SETUP, ACCESS} state_e;
-  state_e current_state = IDLE;
-  transaction trans;
-  
-  function new(virtual apb_intf vif, mailbox gen2drv);
-    this.vif = vif;
-    this.gen2drv = gen2drv;
-  endfunction
+      transaction trans;
+typedef enum logic [1:0] {
+    IDLE   = 2'b00,
+    SETUP  = 2'b01,
+    ACCESS = 2'b10
+    } apb_state;
 
-  task reset();
-    vif.master_cb.PSELx <= 0;
-    vif.master_cb.PENABLE <= 0;
-    current_state = IDLE;
-  endtask
-  task run();
-    forever begin
-      case(current_state)
-        IDLE: begin
-          // Signal ready and get new transaction
-          -> drv_ready;
-          gen2drv.get(trans);
-          current_state = SETUP;
-        end
-        
-        SETUP: begin
-          // Drive SETUP phase signals
-          vif.master_cb.PSELx <= 1;
-          vif.master_cb.PENABLE <= 0;
-          vif.master_cb.PWRITE <= trans.PWRITE;
-          vif.master_cb.PADDR <= trans.PADDR;
-          if(trans.PWRITE) vif.master_cb.PWDATA <= trans.PWDATA;
-          
-          @(vif.master_cb);
-          current_state = ACCESS;
-        end
-        
-        ACCESS: begin
-          // Drive ACCESS phase signals
-          vif.master_cb.PENABLE <= 1;
-          
-          // Wait for PREADY (may take multiple cycles)
-          do begin
-            @(vif.master_cb);
-          end while (!vif.master_cb.PREADY);
-          
-          // Capture response
-          if(!trans.PWRITE) trans.PRDATA = vif.master_cb.PRDATA;
-          trans.PSLVERR = vif.master_cb.PSLVERR;
-          trans.PREADY = 1;
-          
-          // End transfer
-          vif.master_cb.PSELx <= 0;
-          vif.master_cb.PENABLE <= 0;
-          current_state = IDLE;
-        end
-      endcase
-    end
-  endtask
+    apb_state state, next_state;
+
+    function new(virtual apb_intf apb_vif, mailbox gen2drv);
+      this.apb_vif = apb_vif;
+      this.gen2drv = gen2drv;
+    endfunction
+
+    task reset;
+      wait(!apb_vif.PRESETn);
+        $display("-----------[DRIVER] Reset Started----------");
+        `DRIV_IF.PWRITE <= 0;
+        `DRIV_IF.PSELx <= 0;
+        `DRIV_IF.PADDR <= 0;
+        `DRIV_IF.PWDATA <= 0;
+        `DRIV_IF.PENABLE <= 0;
+         state = IDLE;
+        wait(apb_vif.PRESETn);
+        $display("---------[DRIVER] Reset Ended---------------");
+    endtask
+
+    task main;
+        forever 
+          begin
+            @(posedge apb_vif.PCLK) //on the posedge clk
+              case (state) // state are IDLE , SETUP, ACCESS
+                IDLE: //first state
+                  begin
+                    gen2drv.get(trans); //get data from mailbox
+                    `DRIV_IF.PSELx <= 0; //drive psel = 0
+                    `DRIV_IF.PENABLE <= 0;//drive penable = 0
+                    state <= SETUP; //next state is setup compulsorily
+                  end
+
+                SETUP: 
+                  begin
+                    `DRIV_IF.PSELx <= 1;//drive psel = 1 so the slave is selected in this state
+                    `DRIV_IF.PENABLE <= 0; //drive penable = 0
+                    `DRIV_IF.PWRITE <= trans.PWRITE; //get pwrite from transaction class
+                    `DRIV_IF.PADDR <= trans.PADDR; //get paddr from transaction class
+                       if(trans.PWRITE) //if pwrite =1 then write pwdata
+                         `DRIV_IF.PWDATA <= trans.PWDATA;
+                    state <= ACCESS;//next state compulsorily access
+                  end
+
+              ACCESS: 
+                  begin
+                    `DRIV_IF.PENABLE <= 1;//drive penable =1 according to the operating states
+                      if (!`DRIV_IF.PREADY)//if pready is = 0 the stay in the access phase only   
+                        begin
+                          state <= ACCESS; 
+                        end 
+                      else if (`DRIV_IF.PSELx) //otherwise when pready = 1 then if psel =1
+                        begin
+                          state <= SETUP;//then setup phase
+                        end 
+                           else
+                             state <= IDLE;//or idle phase
+                  end
+              endcase
+            trans.display("DRIVER");
+          end
+    endtask
 endclass
