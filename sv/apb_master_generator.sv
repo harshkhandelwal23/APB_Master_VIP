@@ -5,7 +5,7 @@
 // Methods:
 //   - sanity: This task runs the first test case where one write and one 
 //     read transaction are generated
-//   - random: This task generates a random mix of read and write 
+//   - directed: This task generates five read and write 
 //     transactions
 // ***************************************************************************
 import my_pkg::*;
@@ -31,13 +31,19 @@ class generator;
   endtask
 
   // -----------------------------[ TESTCASE 2 ]-----------------------------
-  // Random test: Generates a random number of mixed read and write transactions.
-  task random(int num);
-    for (int i = 0; i < num; i++) 
+  // Directed test: Generates five read and write transactions.
+  task directed();
+    repeat (5)
       begin
-      // Create a random transaction and send it to the driver
       trans = new();
-      trans.randomize();
+      trans.randomize() with {PWRITE == 1;}; //five write transaction
+      gen2drv.put(trans);  // Send the transaction to the driver
+      trans.display("Generator");  // Display the generated transaction
+      end
+    repeat (5)
+      begin
+      trans = new();
+      trans.randomize() with {PWRITE == 0;}; //five read transaction
       gen2drv.put(trans);  // Send the transaction to the driver
       trans.display("Generator");  // Display the generated transaction
       end

@@ -13,14 +13,14 @@ class test;
   apb_slave slave;
   virtual apb_intf intf;
 
-  // -----------------------------[ Constructor ]------------------------------
+  //  Constructor 
   function new(virtual apb_intf intf);
     this.intf = intf;
     env = new(intf);        // Create environment instance
     slave = new(intf);      // Create slave model instance
   endfunction
 
-  // -----------------------------[ Main Run Task ]----------------------------
+  //  Main Run Task
   task run();
     fork
       testcase();           // Select and run the appropriate testcase
@@ -35,9 +35,9 @@ class test;
     if ($test$plusargs("TEST1")) begin
       env.gen.sanity();
     
-    // Command-line switch for TEST2: random mix of read/write transactions
+    // Command-line switch for TEST2: 5 read/write transactions
     end else if ($test$plusargs("TEST2")) begin
-      env.gen.random(10);
+      env.gen.directed();
     end
   endtask
 
