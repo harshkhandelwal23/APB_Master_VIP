@@ -1,54 +1,53 @@
+// *****************************************************************************
+// Class: environment
+// Description:
+//   integration class that connects generator, driver, monitor,
+//   and scoreboard. Manages simulation flow using mailboxes and virtual interface.
+// *****************************************************************************
 import my_pkg::*;
-// APB4 Environment
-class apb_environment;
-  apb_generator   generator;
-  apb_driver      driver;
-  apb_monitor     monitor;
-  apb_scoreboard  scoreboard;
-  
-  mailbox gen2drv;
-  mailbox drv2scb;
-  mailbox mon2scb;
-  
-  virtual apb_if vif;
-  event gen_done;
-  
-  function new(virtual apb_if vif);
-    this.vif = vif;
-    
+class environment;
+  generator gen;
+  driver driv;
+  monitor mon;
+  scoreboard scb;
+
+  mailbox gen2drv;   // Generator to driver communication
+  mailbox mon2scb;   // Monitor to scoreboard communication
+
+  virtual apb_intf apb_vif;  // Virtual interface for APB
+
+  // -------------------------[ Constructor ]-------------------------
+  function new(virtual apb_intf apb_vif);
+    this.apb_vif = apb_vif;
+
+    // Initialize mailboxes
     gen2drv = new();
-    drv2scb = new();
     mon2scb = new();
-    
-    generator  = new(gen2drv, gen_done);
-    driver     = new(vif.MASTER, gen2drv, drv2scb);
-    monitor    = new(vif.MONITOR, mon2scb);
-    scoreboard = new(drv2scb, mon2scb);
+
+    // Create component instances and pass appropriate arguments
+    gen  = new(gen2drv);
+    driv = new(apb_vif, gen2drv);
+    mon  = new(apb_vif, mon2scb);
+    scb  = new(mon2scb);
   endfunction
-  
+
+  // -------------------------[ Reset Phase ]-------------------------
   task pre_test();
-    driver.reset();
+    driv.reset(); // Assert and deassert reset via driver
   endtask
-  
+
+  // -------------------------[ Test Phase ]-------------------------
   task test();
     fork
-      generator.run();
-      driver.run();
-      monitor.run();
-      scoreboard.run();
-    join_any
+      driv.main();  // Drive transactions to DUT
+      mon.main();   // Monitor signals from DUT
+      scb.main();   // Compare expected vs actual using scoreboard
+    join
   endtask
-  
-  task post_test();
-    wait(gen_done.triggered);
-    wait(generator.transaction_count == driver.transactions_done);
-    #100;
-    scoreboard.report();
-  endtask
-  
-  task run();
-    pre_test();
-    test();
-    post_test();
+
+  // -------------------------[ Run Sequence ]-------------------------
+  task run;
+    pre_test();  // Reset DUT
+    test();      // Execute main test
   endtask
 endclass

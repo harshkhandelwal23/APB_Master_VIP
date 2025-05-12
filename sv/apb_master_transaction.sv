@@ -1,32 +1,39 @@
-// APB4 Transaction Class
-class apb_transaction;
-  // Transaction fields
-  rand bit [31:0] addr;
-  rand bit [31:0] data;
-  rand bit        wr_rd; // 1: Write, 0: Read
-  bit [31:0]      rdata; // For read operations
-  bit             error; // To store slave error response
+// ************************************************************************
+// Class: apb_master_transaction
+// Purpose: This class represents a single transaction for the APB interface,
+// which includes the address, data, and control signals necessary for an APB 
+// ************************************************************************
+
+import my_pkg::*;  
+class transaction #(int ADDR_WIDTH = 32, int DATA_WIDTH = 32);
   
-  // Constraints
-  constraint addr_c {
-    addr inside {[32'h0000_0000:32'h0000_0400]}; // Address range
+  rand bit [ADDR_WIDTH-1:0] PADDR;   // Address bus 
+  rand bit [DATA_WIDTH-1:0] PWDATA;  // Write Data bus 
+  rand bit PSELx;                   // APB select signal 
+  rand bit PENABLE;                  // APB enable signal
+  rand bit PWRITE;                   // Write enable signal (1 for write, 0 for read)
+  bit [DATA_WIDTH-1:0] PRDATA;       // Read Data bus 
+  bit PREADY;                        // Ready signal 
+
+  constraint addr { 
+    PADDR inside {[32'h0000_0000:32'h0000_0400]}; // Address between 0x0000_0000 and 0x0000_0400
   }
-  
-  // Copy method
-  function apb_transaction copy();
-    apb_transaction tx;
-    tx = new();
-    tx.addr  = this.addr;
-    tx.data  = this.data;
-    tx.wr_rd = this.wr_rd;
-    tx.rdata = this.rdata;
-    tx.error = this.error;
-    return tx;
+
+  constraint ratio { 
+    PWRITE dist {1 := 50, 0 := 50}; // Half-Half chance for PWRITE to be 1 (write) or 0 (read)
+  }
+
+  constraint valid { 
+    if (PWRITE) 
+      PWDATA inside {[0 : 32'hFFFF_FFFF]}; // Valid range for write data
+    else 
+      PWDATA == 0; // For reads, no data is written
+  }
+
+  function void display(string class_name); //Display method
+    $display("------------------[%s]-------------------------", class_name);
+    $display("[%0t] PSELx = %0b, PENABLE = %0b, PWRITE = %0b, PADDR = %0h, PWDATA = %0h, PRDATA = %0h", 
+             $time, PSELx, PENABLE, PWRITE, PADDR, PWDATA, PRDATA);
   endfunction
-  
-  // Display method
-  function void display(string tag="");
-    $display("[%0t] %s Transaction: addr=0x%0h, %s, data/rdata=0x%0h, error=%0d", 
-             $time, tag, addr, wr_rd ? "WRITE" : "READ", wr_rd ? data : rdata, error);
-  endfunction
+
 endclass

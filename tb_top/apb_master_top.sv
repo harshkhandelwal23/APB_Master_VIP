@@ -1,47 +1,33 @@
 `include "../sve/apb_master_test.sv"
-`include "../sv/apb_master_package.sv"
 // Testbench Top
 module top;
-  logic pclk;
-  logic preset_n;
-  
-  // Clock generation
+  logic PCLK;
+  logic PRESETn;
+
+  always #5 PCLK = ~PCLK;
+
   initial begin
-    pclk = 0;
-    forever #5 pclk = ~pclk;
+    PCLK = 0;
+    PRESETn = 0;
+    #10 PRESETn = 1;
   end
-  
-  // Reset generation
+
+  apb_intf intf(PCLK, PRESETn);
+
+  test t1;
+
   initial begin
-    preset_n = 0;
-    #20 preset_n = 1;
+    t1 = new(intf);
+    t1.run();
   end
-  
-  // APB interface instantiation
-  apb_if apb_if_inst(pclk, preset_n);
-  
-  // Dummy slave instantiation
-  //dummy_apb_slave slave(apb_if_inst.SLAVE);
-  
-  // Test instance
-  apb_test test;
-  
+
   initial begin
-    // Create test
-    test = new(apb_if_inst);
-    
-    // Run test
-    test.run();
-    
-    // End simulation
-    #1000;
-    $display("Simulation completed!");
-    $finish;
-  end
-  
-  // Dumping waveforms for EPWave
-  initial begin
-    $dumpfile("apb4_master_vip.vcd");
+    $dumpfile("APB.vcd");
     $dumpvars(0, top);
+  end
+
+  initial begin
+    #500;
+    $finish;
   end
 endmodule

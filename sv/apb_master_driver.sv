@@ -1,75 +1,96 @@
 import my_pkg::*;
 `define DRIV_IF apb_vif.DRIVER.driver_cb
+// ***************************************************************************
+// Class: APB_Master_driver
+// Description:
+//   This class drives APB transactions to the DUT (Design Under Test) using
+//   a simple FSM-based approach. It receives transactions from the generator
+//   via a mailbox and drives them onto the APB interface in accordance with
+//   the APB4 protocol.
+// ***************************************************************************
 class driver;
+  // Virtual interface to drive APB signals
   virtual apb_intf apb_vif;
+  // Mailbox to receive transactions from the generator
   mailbox gen2drv;
+
   transaction trans;
+
+  // Enum: apb_state
+  //   Represents the three main states of APB protocol
   typedef enum logic [1:0] {
     IDLE   = 2'b00,
     SETUP  = 2'b01,
     ACCESS = 2'b10
-    } apb_state;
+  } apb_state;
 
-    apb_state state, next_state;
+  apb_state state;
 
-    function new(virtual apb_intf apb_vif, mailbox gen2drv);
-      this.apb_vif = apb_vif;
-      this.gen2drv = gen2drv;
-    endfunction
+  // Constructor
+  function new(virtual apb_intf apb_vif, mailbox gen2drv);
+    this.apb_vif = apb_vif;
+    this.gen2drv = gen2drv;
+  endfunction
 
-    task reset;
-      wait(!apb_vif.PRESETn);
-        $display("-----------[DRIVER] Reset Started----------");
-        `DRIV_IF.PWRITE <= 0;
-        `DRIV_IF.PSELx <= 0;
-        `DRIV_IF.PADDR <= 0;
-        `DRIV_IF.PWDATA <= 0;
-        `DRIV_IF.PENABLE <= 0;
-         state = IDLE;
-        wait(apb_vif.PRESETn);
-        $display("---------[DRIVER] Reset Ended---------------");
-    endtask
+  // Task: reset
+  // Drives default values during reset and waits for deassertion.
+  task reset();
+    wait(!apb_vif.PRESETn);  // Wait for reset assertion
+    $display("-----------[DRIVER] Reset Started----------");
+    `DRIV_IF.PWRITE  <= 0;
+    `DRIV_IF.PSELx   <= 0;
+    `DRIV_IF.PADDR   <= 0;
+    `DRIV_IF.PWDATA  <= 0;
+    `DRIV_IF.PENABLE <= 0;
+    state = IDLE;
+    wait(apb_vif.PRESETn);  // Wait for reset deassertion
+    $display("---------[DRIVER] Reset Ended---------------");
+  endtask
 
-    task main;
-        forever 
-          begin
-            gen2drv.get(trans); //get data from mailbox
-            @(posedge apb_vif.PCLK) //on the posedge clk
-              case (state) // state are IDLE , SETUP, ACCESS
-                IDLE: //first state
-                  begin
-                    `DRIV_IF.PSELx <= 0; //drive psel = 0
-                    `DRIV_IF.PENABLE <= 0;//drive penable = 0
-                    state <= SETUP; //next state is setup compulsorily
-                  end
+  // Task: main
+  // Implements the FSM to drive transactions to the DUT using the APB4 protocol.
+  task main();
+    forever @(posedge apb_vif.PCLK) begin
+      case (state)
+        // IDLE: Default state. No transfer in progress.
+        IDLE: begin
+          $display("-----------------IDLE PHASE------------------------");
+          `DRIV_IF.PSELx   <= 0;
+          `DRIV_IF.PENABLE <= 0;
+          state <= SETUP;
+        end
 
-                SETUP: 
-                  begin
-                    `DRIV_IF.PSELx <= 1;//drive psel = 1 so the slave is selected in this state
-                    `DRIV_IF.PENABLE <= 0; //drive penable = 0
-                    `DRIV_IF.PWRITE <= trans.PWRITE; //get pwrite from transaction class
-                    `DRIV_IF.PADDR <= trans.PADDR; //get paddr from transaction class
-                       if(trans.PWRITE) //if pwrite =1 then write pwdata
-                         `DRIV_IF.PWDATA <= trans.PWDATA;
-                    state <= ACCESS;//next state compulsorily access
-                  end
+        // SETUP: Start of new APB transaction.
+        // Read from mailbox and set up signals.
+        SETUP: begin
+          $display("-----------------SETUP PHASE------------------------");
+          gen2drv.get(trans);  // Get next transaction
+          `DRIV_IF.PSELx   <= 1;
+          `DRIV_IF.PENABLE <= 0;
+          `DRIV_IF.PWRITE  <= trans.PWRITE;
+          `DRIV_IF.PADDR   <= trans.PADDR;
+          if (trans.PWRITE)
+            `DRIV_IF.PWDATA <= trans.PWDATA;
+          trans.display("DRIVER");
+          state <= ACCESS;
+        end
 
-              ACCESS: 
-                  begin
-                    `DRIV_IF.PENABLE <= 1;//drive penable =1 according to the operating states
-                      if (!`DRIV_IF.PREADY)//if pready is = 0 the stay in the access phase only   
-                        begin
-                          state <= ACCESS; 
-                        end 
-                      else if (`DRIV_IF.PSELx) //otherwise when pready = 1 then if psel =1
-                        begin
-                          state <= SETUP;//then setup phase
-                        end 
-                           else
-                             state <= IDLE;//otherwise idle phase
-                  end
-              endcase
-            trans.display("DRIVER");
-          end
-    endtask
+        // ACCESS: Drive PENABLE, wait for PREADY from slave.
+        ACCESS: begin
+          $display("-----------------ACCESS PHASE------------------------");
+          `DRIV_IF.PENABLE <= 1;
+
+          // Wait here until PREADY is high
+          if (!`DRIV_IF.PREADY)
+            state <= ACCESS;
+          else
+            state <= SETUP;
+        end
+
+        // Default fallback (shouldn't be hit ideally)
+        default: state <= IDLE;
+      endcase
+    end
+  endtask
+
 endclass

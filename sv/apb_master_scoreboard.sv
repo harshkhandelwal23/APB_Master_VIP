@@ -1,50 +1,57 @@
+// *****************************************************************************
+// Class: APB master scoreboard
+// Description:
+//   Compares expected read data based on previous writes stored in memory.
+//   Receives transactions from the monitor through a mailbox and checks correctness.
+// *****************************************************************************
 import my_pkg::*;
-// APB4 Scoreboard
-class apb_scoreboard;
-  mailbox drv2scb;
-  mailbox mon2scb;
-  int match_count;    // Renamed from "matches" to fix the syntax error
-  int mismatch_count; // Renamed from "mismatches" for consistency
-  
-  function new(mailbox drv2scb, mailbox mon2scb);
-    this.drv2scb = drv2scb;
+class scoreboard;
+  mailbox mon2scb;                      // Receives transactions from the monitor
+  bit [31:0] mem[bit];            // Associative array 
+
+  // -------------------------[ Constructor ]-------------------------
+  function new(mailbox mon2scb);
     this.mon2scb = mon2scb;
-    this.match_count = 0;
-    this.mismatch_count = 0;
   endfunction
-  
-  task run();
-    apb_transaction tx_drv, tx_mon;
-    
+
+  // -------------------------[ Main Scoreboard Task ]-------------------------
+  task main;
+    transaction trans;
     forever begin
-      drv2scb.get(tx_drv);
-      mon2scb.get(tx_mon);
-      
-      if(tx_drv.addr != tx_mon.addr) begin
-        $error("Scoreboard: Address mismatch! Driver=%0h, Monitor=%0h", tx_drv.addr, tx_mon.addr);
-        mismatch_count++;
-      end else if(tx_drv.wr_rd != tx_mon.wr_rd) begin
-        $error("Scoreboard: Operation mismatch! Driver=%0s, Monitor=%0s", 
-               tx_drv.wr_rd ? "WRITE" : "READ", tx_mon.wr_rd ? "WRITE" : "READ");
-        mismatch_count++;
-      end else if(tx_drv.wr_rd && (tx_drv.data != tx_mon.data)) begin
-        $error("Scoreboard: Write data mismatch! Driver=%0h, Monitor=%0h", tx_drv.data, tx_mon.data);
-        mismatch_count++;
-      end else if(!tx_drv.wr_rd && (tx_drv.rdata != tx_mon.rdata)) begin
-        $error("Scoreboard: Read data mismatch! Driver=%0h, Monitor=%0h", tx_drv.rdata, tx_mon.rdata);
-        mismatch_count++;
-      end else begin
-        $display("[%0t] Scoreboard: Transaction match!", $time);
-        match_count++;
+      // Wait for a transaction from the monitor
+      mon2scb.get(trans);
+      trans.display("Scoreboard");
+
+      if (trans.PWRITE) begin
+        // ---------------------- WRITE OPERATION ----------------------
+        // Store the written data in the memory model
+        mem[trans.PADDR] = trans.PWDATA;
+        $display("[SCOREBOARD] WRITE: Addr = 0x%0h, Data = 0x%0h", 
+                  trans.PADDR, trans.PWDATA);
+      end
+      else begin
+        // ---------------------- READ OPERATION -----------------------
+        // Check if the address was previously written
+        if (mem.exists(trans.PADDR)) begin
+          // Compare expected and actual read data
+          if (mem[trans.PADDR] === trans.PRDATA) begin
+            $display("[SCOREBOARD] READ PASS: Addr = 0x%0h, Data = 0x%0h", 
+                      trans.PADDR, trans.PRDATA);
+            $display("\n-------------------- Testcase Passed --------------------\n");
+          end
+          else begin
+            $display("[SCOREBOARD] READ FAIL: Addr = 0x%0h, Expected = 0x%0h, Got = 0x%0h", 
+                      trans.PADDR, mem[trans.PADDR], trans.PRDATA);
+            $display("\n-------------------- Testcase Failed --------------------\n");
+          end
+        end
+        else begin
+          // Read from unknown address
+          $display("[SCOREBOARD] READ from unknown Addr = 0x%0h, Got = 0x%0h", 
+                    trans.PADDR, trans.PRDATA);
+          $display("\n-------------------- Testcase Failed --------------------\n");
+        end
       end
     end
   endtask
-  
-  function void report();
-    $display("\n--- Scoreboard Report ---");
-    $display("Total transactions: %0d", match_count + mismatch_count);
-    $display("Matches: %0d", match_count);
-    $display("Mismatches: %0d", mismatch_count);
-    $display("------------------------\n");
-  endfunction
 endclass
