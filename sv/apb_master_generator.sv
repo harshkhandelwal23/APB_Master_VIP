@@ -33,20 +33,25 @@ class generator;
   // -----------------------------[ TESTCASE 2 ]-----------------------------
   // Directed test: Generates five read and write transactions.
   task directed();
-    repeat (5)
-      begin
-      trans = new();
-      trans.randomize() with {PWRITE == 1;}; //five write transaction
-      gen2drv.put(trans);  // Send the transaction to the driver
-      trans.display("Generator");  // Display the generated transaction
-      end
-    repeat (5)
-      begin
-      trans = new();
-      trans.randomize() with {PWRITE == 0;}; //five read transaction
-      gen2drv.put(trans);  // Send the transaction to the driver
-      trans.display("Generator");  // Display the generated transaction
-      end
-  endtask
+  bit [31:0] addr_list[5] = '{32'h70, 32'h80, 32'h90, 32'h54, 32'h40};
+
+  // Write transactions
+  foreach (addr_list[i]) begin
+    trans = new();
+    trans.randomize() with { PWRITE == 1; };
+    trans.PADDR = addr_list[i];
+    gen2drv.put(trans);
+    trans.display("Generator");
+  end
+
+  // Read transactions
+  foreach (addr_list[i]) begin
+    trans = new();
+    trans.randomize() with { PWRITE == 0; };
+    trans.PADDR = addr_list[i];
+    gen2drv.put(trans);
+    trans.display("Generator");
+  end
+endtask
 
 endclass
