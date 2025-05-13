@@ -3,8 +3,6 @@
 // Purpose: This class represents a single transaction for the APB interface,
 // which includes the address, data, and control signals necessary for an APB 
 // ************************************************************************
-
-import my_pkg::*;  
 class transaction #(int ADDR_WIDTH = 32, int DATA_WIDTH = 32);
   
   rand bit [ADDR_WIDTH-1:0] PADDR;   // Address bus 

@@ -64,15 +64,17 @@ class driver;
         // Read from mailbox and set up signals.
         SETUP: begin
           $display("-----------------SETUP PHASE------------------------");
-          gen2drv.get(trans);  // Get next transaction
           `DRIV_IF.PSELx   <= 1;
           `DRIV_IF.PENABLE <= 0;
+          gen2drv.get(trans);  // Get next transaction
           `DRIV_IF.PWRITE  <= trans.PWRITE;
           `DRIV_IF.PADDR   <= trans.PADDR;
           if (trans.PWRITE)
             `DRIV_IF.PWDATA <= trans.PWDATA;
           trans.display("DRIVER");
           state <= ACCESS;
+          $display(" setup phase display PSELx = %0b, PENABLE = %0b, PWRITE = %0b, PADDR = %0h, PWDATA = %0h, PRDATA = %0h, state = %p", 
+             trans.PSELx, trans.PENABLE, trans.PWRITE, trans.PADDR, trans.PWDATA, trans.PRDATA, state.name());
         end
 
         // ACCESS: Drive PENABLE, wait for PREADY from slave.

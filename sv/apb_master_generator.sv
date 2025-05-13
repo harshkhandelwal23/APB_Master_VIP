@@ -34,7 +34,7 @@ class generator;
   // Directed test: Generates five read and write transactions.
   task directed();
   bit [31:0] addr_list[5] = '{32'h70, 32'h80, 32'h90, 32'h54, 32'h40};
-
+  bit [31:0] addr_list1 [5] = '{32'h40, 32'h54, 32'h90, 32'h80, 32'h70};
   // Write transactions
   foreach (addr_list[i]) begin
     trans = new();

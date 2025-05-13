@@ -42,7 +42,7 @@ class scoreboard;
           else begin
             $display("[SCOREBOARD] READ FAIL: Addr = 0x%0h, Expected = 0x%0h, Got = 0x%0h", 
                       trans.PADDR, mem[trans.PADDR], trans.PRDATA);
-            $display("\n-------------------- Testcase Failed --------------------\n");
+            $error("\n-------------------- Testcase Failed --------------------\n");
           end
         end
         else begin
